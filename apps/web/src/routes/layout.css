@@ -1,0 +1,26 @@
+@import 'tailwindcss';
+@import '@laurel/ui/theme.css';
+
+@layer base {
+	body {
+		@apply bg-background text-foreground h-full font-sans antialiased;
+	}
+
+	::-webkit-scrollbar {
+		width: 5px;
+	}
+
+	::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	::-webkit-scrollbar-thumb {
+		background: var(--color-border);
+		border-radius: 5px;
+	}
+
+	* {
+		scrollbar-width: thin;
+		scrollbar-color: var(--color-border) transparent;
+	}
+}

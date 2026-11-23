@@ -1,0 +1,6 @@
+# See tools/repo/manifest.go for every field.
+name: web
+kind: svelte-app
+description: The main web app.
+subdomain: app
+port: 5173

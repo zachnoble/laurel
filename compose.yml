@@ -1,0 +1,48 @@
+name: laurel
+
+# Projects are generated from their project.yaml (`just gen`).
+include:
+  - compose.projects.yml
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 1s
+      timeout: 1s
+      retries: 60
+    restart: unless-stopped
+
+  valkey:
+    image: valkey/valkey:9-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey_data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 1s
+      timeout: 1s
+      retries: 60
+    restart: unless-stopped
+
+  # Trace viewer, http://localhost:16686. Services export to it via dev.env;
+  # when it isn't running, spans are dropped.
+  jaeger:
+    image: jaegertracing/jaeger:2.10.0
+    ports:
+      - "16686:16686"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  valkey_data:

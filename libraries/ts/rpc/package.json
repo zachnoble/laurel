@@ -1,0 +1,28 @@
+{
+	"name": "@laurel/rpc-runtime",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Browser-side Connect runtime matching libraries/go/rpc (cookie credentials, GET for side-effect-free methods)",
+	"type": "module",
+	"sideEffects": false,
+	"exports": {
+		"./*": "./src/*"
+	},
+	"peerDependencies": {
+		"@connectrpc/connect": "^2.3.0"
+	},
+	"dependencies": {
+		"@connectrpc/connect-web": "catalog:"
+	},
+	"devDependencies": {
+		"@bufbuild/protobuf": "catalog:",
+		"@connectrpc/connect": "catalog:",
+		"@laurel/rpc": "workspace:*",
+		"typescript": "catalog:",
+		"vitest": "catalog:"
+	},
+	"scripts": {
+		"test": "vitest run --passWithNoTests",
+		"typecheck": "tsc --noEmit -p tsconfig.json"
+	}
+}

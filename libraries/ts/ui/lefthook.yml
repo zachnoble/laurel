@@ -1,0 +1,13 @@
+pre-commit:
+    parallel: true
+    jobs:
+        - name: ui-typecheck
+          root: libraries/ts/ui/
+          glob: "*.{ts,js,svelte,json}"
+          run: ./node_modules/.bin/svelte-check --tsconfig ./tsconfig.json --tsgo
+
+        - name: ui-check
+          root: libraries/ts/ui/
+          glob: "*.{ts,js,svelte,css,json}"
+          run: ./node_modules/.bin/biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+          stage_fixed: true

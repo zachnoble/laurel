@@ -1,0 +1,82 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.6.8/schema.json",
+	"root": true,
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
+	},
+	"files": {
+		"includes": ["apps/**", "libraries/ts/**"]
+	},
+	"formatter": {
+		"indentStyle": "tab",
+		"indentWidth": 4,
+		"lineWidth": 100
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "single",
+			"semicolons": "asNeeded",
+			"trailingCommas": "all",
+			"arrowParentheses": "always",
+			"bracketSpacing": true,
+			"bracketSameLine": false
+		}
+	},
+	"html": {
+		"experimentalFullSupportEnabled": true,
+		"formatter": {
+			"enabled": true,
+			"indentScriptAndStyle": true
+		}
+	},
+	"css": {
+		"parser": {
+			"tailwindDirectives": true
+		},
+		"formatter": {
+			"quoteStyle": "single"
+		}
+	},
+	"assist": {
+		"actions": {
+			"source": {
+				"organizeImports": {
+					"level": "on",
+					"options": {
+						"groups": [
+							[":NODE:", ":BUN:", ":PACKAGE:", "$app/**", "$env/**"],
+							":BLANK_LINE:",
+							[":ALIAS:", ":PATH:"]
+						]
+					}
+				}
+			}
+		}
+	},
+	"linter": {
+		"rules": {
+			"preset": "recommended",
+			"suspicious": {
+				"noExplicitAny": "error"
+			},
+			"nursery": {
+				"noSvelteAtDebugTags": "error",
+				"noSvelteAtHtmlTags": "warn",
+				"noSvelteBindValueOnCheckableInputs": "error",
+				"noSvelteExportLet": "error",
+				"noSvelteInspect": "warn",
+				"noSvelteInternal": "error",
+				"noSvelteLegacyConst": "error",
+				"noSvelteObjectInTextMustaches": "error",
+				"noSvelteUnnecessaryStateWrap": "error",
+				"noSvelteUselessDerivedBy": "error",
+				"useSvelteRequireEachKey": "error",
+				"useSvelteKitRuneImports": "error",
+				"useSvelteKitResolve": "error",
+				"useTailwindSortedClasses": "error"
+			}
+		}
+	}
+}

@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+package auth.v1;
+
+import "buf/validate/validate.proto";
+import "options/v1/options.proto";
+
+service AuthService {
+  rpc SendOtp(SendOtpRequest) returns (SendOtpResponse) {
+    option (options.v1.public) = true;
+  }
+
+  rpc VerifyOtp(VerifyOtpRequest) returns (VerifyOtpResponse) {
+    option (options.v1.public) = true;
+  }
+
+  rpc SignOut(SignOutRequest) returns (SignOutResponse) {
+    option (options.v1.public) = true;
+  }
+
+  rpc GetSession(GetSessionRequest) returns (GetSessionResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (options.v1.public) = true;
+  }
+}
+
+// Internal-only: callable by other services (the gateway), never through it.
+service AuthInternalService {
+  option (options.v1.internal) = true;
+
+  // Exchanges the browser's session cookie for a short-lived identity token
+  // (libraries/go/rpc identity.go) that the gateway forwards to services.
+  rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {
+    // No signed-in user: the caller is the gateway itself.
+    option (options.v1.public) = true;
+  }
+}
+
+message User {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+  bool email_verified = 4;
+  optional string image = 5;
+}
+
+message SendOtpRequest {
+  string email = 1 [(buf.validate.field).string.email = true];
+}
+
+message SendOtpResponse {}
+
+message VerifyOtpRequest {
+  string email = 1 [(buf.validate.field).string.email = true];
+  string otp = 2 [(buf.validate.field).string.pattern = "^[0-9]{6}$"];
+}
+
+message VerifyOtpResponse {
+  User user = 1;
+}
+
+message SignOutRequest {}
+
+message SignOutResponse {}
+
+message GetSessionRequest {}
+
+message GetSessionResponse {
+  User user = 1;
+}
+
+message AuthenticateRequest {
+  // The raw Cookie header from the browser request.
+  string cookie = 1;
+}
+
+message AuthenticateResponse {
+  string token = 1;
+}

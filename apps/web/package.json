@@ -1,0 +1,56 @@
+{
+	"name": "web",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"imports": {
+		"#lib": "./src/lib/index.js",
+		"#lib/*": "./src/lib/*"
+	},
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"prepare": "svelte-kit sync || echo \"\"",
+		"typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"typecheck:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"lint": "biome check",
+		"lint:fix": "biome check --write",
+		"format": "biome format --write",
+		"format:check": "biome format",
+		"test": "vitest run --passWithNoTests"
+	},
+	"dependencies": {
+		"@bufbuild/protobuf": "catalog:",
+		"@connectrpc/connect": "catalog:",
+		"@connectrpc/connect-query-core": "catalog:",
+		"@internationalized/date": "catalog:",
+		"@laurel/rpc": "workspace:*",
+		"@laurel/rpc-runtime": "workspace:*",
+		"@laurel/ui": "workspace:*",
+		"@tanstack/svelte-query": "catalog:",
+		"bits-ui": "catalog:",
+		"mode-watcher": "catalog:",
+		"nprogress": "catalog:",
+		"svelte-sonner": "catalog:",
+		"sveltekit-superforms": "catalog:",
+		"tailwind-variants": "catalog:",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "catalog:",
+		"@lucide/svelte": "catalog:",
+		"@sveltejs/adapter-static": "catalog:",
+		"@sveltejs/kit": "catalog:",
+		"@sveltejs/vite-plugin-svelte": "catalog:",
+		"@tailwindcss/vite": "catalog:",
+		"@types/node": "catalog:",
+		"@types/nprogress": "catalog:",
+		"svelte": "catalog:",
+		"svelte-check": "catalog:",
+		"tailwindcss": "catalog:",
+		"typescript": "catalog:",
+		"vite": "catalog:",
+		"vitest": "catalog:"
+	}
+}

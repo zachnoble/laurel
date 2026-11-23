@@ -1,0 +1,17 @@
+{
+	"name": "@laurel/rpc",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Protobuf messages and Connect service descriptors for proto/, at <name>/v<N>/ (`just gen`)",
+	"type": "module",
+	"sideEffects": false,
+	"exports": {
+		"./*": "./*"
+	},
+	"peerDependencies": {
+		"@bufbuild/protobuf": "^2.17.0"
+	},
+	"devDependencies": {
+		"@bufbuild/protobuf": "catalog:"
+	}
+}

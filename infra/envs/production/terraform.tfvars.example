@@ -1,0 +1,14 @@
+# Copy to terraform.tfvars and fill in.
+region               = "us-east-1"
+github_repository    = "zachnoble/laurel"
+vpc_id               = "vpc-..."
+private_subnet_ids   = ["subnet-...", "subnet-..."]
+public_subnet_ids    = ["subnet-...", "subnet-..."]
+domain               = "example.com"
+api_certificate_arn  = "arn:aws:acm:..."
+apps_certificate_arn = "arn:aws:acm:us-east-1:..."
+# just keygen -> IDENTITY_PUBLIC_KEYS (the private half goes in auth's IDENTITY_PRIVATE_KEY secret)
+identity_public_keys = ["..."]
+service_env = {
+  auth = { EMAIL_FROM_ADDRESS = "no-reply@example.com" }
+}

@@ -1,0 +1,68 @@
+name: Rollback
+
+# Redeploy one project at an earlier commit. Go services reuse that commit's
+# image (kept in ECR) and skip migrations, which only ever move forward, so
+# the schema must still suit the older code (expand/contract, see
+# libraries/go/db.Migrate). Apps are rebuilt at that commit. The project's
+# deploy tag moves back, so the next deploy of main redeploys it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [staging, production]
+      project:
+        description: Project name (see `just list`)
+        type: string
+        required: true
+      sha:
+        description: Commit on main to roll back to
+        type: string
+        required: true
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+    steps:
+      # Scripts from main; the app source (if rebuilding) from the old commit.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+        with:
+          go: "true"
+          node: "true"
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+      - uses: docker/setup-buildx-action@v4
+      - name: Roll back
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          PROJECT: ${{ inputs.project }}
+          SHA: ${{ inputs.sha }}
+        run: |
+          sha=$(git rev-parse "$SHA^{commit}")
+          kind=$(go run ./tools/repo list | awk -v p="$PROJECT" '$1 == p { print $2 }')
+          case "$kind" in
+            go-service) .github/scripts/deploy-go.sh "$ENVIRONMENT" "$PROJECT" "$sha" --skip-migrations ;;
+            svelte-app)
+              git worktree add -q "$RUNNER_TEMP/at" "$sha"
+              (cd "$RUNNER_TEMP/at" && pnpm install --frozen-lockfile --filter "./apps/$PROJECT..." &&
+                "$GITHUB_WORKSPACE/.github/scripts/deploy-svelte.sh" "$ENVIRONMENT" "$PROJECT" "$sha") ;;
+            *) echo "::error::$PROJECT is not a deployable project"; exit 1 ;;
+          esac
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          ALLOW_BACKWARDS=true .github/scripts/tag-deployed.sh "$ENVIRONMENT" "$sha" "$PROJECT"

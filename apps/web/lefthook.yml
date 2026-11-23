@@ -1,0 +1,13 @@
+pre-commit:
+    parallel: true
+    jobs:
+        - name: web-typecheck
+          root: apps/web/
+          glob: "*.{ts,js,svelte,json}"
+          run: ./node_modules/.bin/svelte-kit sync && ./node_modules/.bin/svelte-check --tsconfig ./tsconfig.json
+
+        - name: web-check
+          root: apps/web/
+          glob: "*.{ts,js,mjs,cjs,svelte,css,html,json,jsonc,yaml,yml}"
+          run: ./node_modules/.bin/biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+          stage_fixed: true

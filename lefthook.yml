@@ -1,0 +1,37 @@
+# Go is one module, so its hooks live here; each TypeScript package keeps a
+# lefthook.yml for its own typecheck.
+extends:
+  - apps/*/lefthook.yml
+  - libraries/ts/*/lefthook.yml
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: go-fmt
+      glob: "*.go"
+      run: gofmt -l -w {staged_files}
+      stage_fixed: true
+
+    - name: go-vet
+      glob: "*.go"
+      # Only the packages with staged changes.
+      run: go vet $(for f in {staged_files}; do echo "./$(dirname "$f")"; done | sort -u)
+
+    - name: go-mod-tidy
+      glob: "{go.mod,go.sum}"
+      run: go mod tidy
+      stage_fixed: true
+
+    - name: repo-gen
+      glob: "{**/project.yaml,pnpm-workspace.yaml,**/sqlc.yaml,**/internal/db/queries/*.sql,**/internal/db/migrations/*.sql,tools/sqlc/go.mod}"
+      run: go run ./tools/repo gen
+      stage_fixed: true
+
+    - name: proto-fmt
+      glob: "rpc/proto/**/*.proto"
+      run: buf format -w
+      stage_fixed: true
+
+    - name: proto-lint
+      glob: "rpc/proto/**/*.proto"
+      run: buf lint

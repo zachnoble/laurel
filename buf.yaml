@@ -1,0 +1,15 @@
+version: v2
+# Every API lives in rpc/proto/<name>/v<N>/*.proto with `package <name>.v<N>;`.
+# <name> is the owning service (see services/<name>/project.yaml): the gateway
+# routes /<name>.v<N>.<Service>/<Method> to it. `just gen` writes the code to
+# rpc/generated/{go,typescript}/<name>/v<N>.
+modules:
+  - path: rpc/proto
+deps:
+  - buf.build/bufbuild/protovalidate
+lint:
+  use:
+    - STANDARD
+breaking:
+  use:
+    - FILE

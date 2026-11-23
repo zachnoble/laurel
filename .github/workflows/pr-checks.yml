@@ -1,0 +1,236 @@
+name: PR Checks
+
+# Checks only what the PR affects (tools/repo affected: the Go import graph,
+# the pnpm workspace graph and per-package lockfile resolution), so a change
+# to one service runs that service's checks, not the whole repo's. Matrices
+# are sharded (at most 20 jobs each) to stay far under GitHub's 256 limit.
+
+on:
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CI: "true"
+
+jobs:
+  affected:
+    runs-on: ubuntu-latest
+    outputs:
+      go_services_matrix: ${{ steps.affected.outputs.go_services_matrix }}
+      go_packages: ${{ steps.affected.outputs.go_packages }}
+      ts_packages: ${{ steps.affected.outputs.ts_packages }}
+      ts_matrix: ${{ steps.affected.outputs.ts_matrix }}
+      proto: ${{ steps.affected.outputs.proto }}
+      migrations: ${{ steps.affected.outputs.migrations }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+        with:
+          go: "true"
+      - id: affected
+        run: go run ./tools/repo affected --base "origin/$BASE_REF" --head HEAD --shards 20
+        env:
+          BASE_REF: ${{ github.base_ref }}
+
+  # Everything `just gen` writes is committed and current.
+  generated:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          go: "true"
+          sqlc: "true"
+          buf: "true"
+          node: "true"
+          pnpm-filter: --filter @laurel/rpc-generators
+      - name: Generated code and files are up to date
+        run: |
+          rpc/generators/generate.sh
+          go run ./tools/repo gen
+          git add --intent-to-add .
+          if ! git diff --exit-code --stat; then
+            echo "::error::Generated files are stale; run 'just gen' and commit the result"
+            exit 1
+          fi
+
+  proto:
+    needs: affected
+    if: needs.affected.outputs.proto == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+        with:
+          buf: "true"
+      - run: buf lint --error-format github-actions
+      - run: buf format --diff --exit-code
+      - name: Breaking changes
+        # Label a PR buf-skip-breaking to accept a deliberate break.
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'buf-skip-breaking') }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if ! git cat-file -e "$BASE_SHA:rpc/proto" 2>/dev/null; then
+            echo "No rpc/proto/ on the base commit; skipping"
+            exit 0
+          fi
+          buf breaking --error-format github-actions --against ".git#ref=$BASE_SHA"
+
+  go:
+    needs: affected
+    if: needs.affected.outputs.go_packages != ''
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 1s
+          --health-timeout 1s
+          --health-retries 60
+    env:
+      PKGS: ${{ needs.affected.outputs.go_packages }}
+      # dbtest creates a database per test on this server.
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres?sslmode=disable
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          go: "true"
+      - name: Format
+        run: |
+          # shellcheck disable=SC2046
+          unformatted=$(gofmt -l $(git ls-files '*.go'))
+          if [ -n "$unformatted" ]; then
+            echo "$unformatted"
+            exit 1
+          fi
+      - name: Tidy
+        run: go mod tidy -diff
+      - name: Fix
+        run: |
+          go fix ./...
+          git diff --exit-code
+      - name: Vet
+        run: |
+          # shellcheck disable=SC2086 # one argument per package/file
+          go vet $PKGS
+      - name: Test
+        run: |
+          # shellcheck disable=SC2086 # one argument per package/file
+          go test -race -count=1 $PKGS
+
+  migrations:
+    needs: affected
+    if: needs.affected.outputs.migrations != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Lint migrations
+        # Flags operations that lock tables or break the release still
+        # running while migrations apply (see libraries/go/db.Migrate).
+        env:
+          FILES: ${{ needs.affected.outputs.migrations }}
+        run: |
+          # shellcheck disable=SC2086 # one argument per package/file
+          npx --yes squawk-cli@2.73.0 $FILES
+
+  images:
+    needs: affected
+    if: needs.affected.outputs.go_services_matrix != '[]'
+    name: images ${{ matrix.shard.shard }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.affected.outputs.go_services_matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - name: Build images
+        env:
+          PROJECTS: ${{ matrix.shard.projects }}
+        run: |
+          for name in $PROJECTS; do
+            echo "::group::$name"
+            docker buildx build \
+              --build-arg SERVICE="$name" \
+              -f docker/go-service.Dockerfile \
+              --cache-from "type=gha,scope=$name" \
+              --cache-to "type=gha,mode=max,scope=$name" \
+              --output type=cacheonly \
+              .
+            echo "::endgroup::"
+          done
+
+  ts-lint:
+    needs: affected
+    if: needs.affected.outputs.ts_packages != '[]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Read Biome version
+        id: biome
+        run: |
+          echo "version=$(sed -nE "s/^ *'@biomejs\/biome': '([^']+)'/\1/p" pnpm-workspace.yaml)" >> "$GITHUB_OUTPUT"
+      - uses: biomejs/setup-biome@v2
+        with:
+          version: ${{ steps.biome.outputs.version }}
+      - run: biome ci
+
+  ts:
+    needs: affected
+    if: needs.affected.outputs.ts_matrix != '[]'
+    name: ts ${{ matrix.shard.shard }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.affected.outputs.ts_matrix) }}
+    env:
+      API_URL: http://localhost:8080
+      PROJECTS: ${{ matrix.shard.projects }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: filter
+        run: echo "filter=$(for d in $PROJECTS; do printf -- '--filter ./%s... ' "$d"; done)" >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/setup
+        with:
+          node: "true"
+          pnpm-filter: ${{ steps.filter.outputs.filter }}
+      - name: Typecheck, test, build
+        run: |
+          for dir in $PROJECTS; do
+            echo "::group::$dir"
+            pnpm --dir "$dir" run --if-present typecheck
+            pnpm --dir "$dir" run --if-present test
+            pnpm --dir "$dir" run --if-present build
+            echo "::endgroup::"
+          done
+
+  ci-ok:
+    needs: [affected, generated, proto, go, migrations, images, ts-lint, ts]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any check failed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
+      - run: echo "All affected checks passed"

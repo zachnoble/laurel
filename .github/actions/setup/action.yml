@@ -1,0 +1,62 @@
+name: Setup
+description: Toolchains for this repo, with caches.
+
+inputs:
+  go:
+    description: Install Go (version from go.mod)
+    default: "false"
+  node:
+    description: Install Node and pnpm, and install dependencies
+    default: "false"
+  pnpm-filter:
+    description: "Arguments for pnpm install, e.g. --filter web... (default: the whole workspace)"
+    default: ""
+  buf:
+    description: Install buf
+    default: "false"
+  sqlc:
+    description: Restore the sqlc that `repo gen` builds from tools/sqlc (needs go)
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - if: inputs.go == 'true'
+      uses: actions/setup-go@v7
+      with:
+        go-version-file: go.mod
+        cache-dependency-path: go.sum
+
+    - if: inputs.sqlc == 'true'
+      uses: actions/cache@v6
+      with:
+        path: ~/.cache/laurel
+        key: sqlc-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tools/sqlc/go.mod', 'tools/sqlc/go.sum') }}
+
+    - if: inputs.buf == 'true'
+      uses: bufbuild/buf-action@v1
+      with:
+        version: 1.75.0
+        setup_only: true
+
+    - if: inputs.node == 'true'
+      uses: pnpm/action-setup@v6
+
+    - if: inputs.node == 'true'
+      uses: actions/setup-node@v7
+      with:
+        node-version: 26
+        cache: pnpm
+        cache-dependency-path: pnpm-lock.yaml
+
+    - if: inputs.node == 'true'
+      shell: bash
+      env:
+        FILTER: ${{ inputs.pnpm-filter }}
+      run: |
+        if [ -n "$FILTER" ]; then
+          # shellcheck disable=SC2086
+          pnpm install --frozen-lockfile --prefer-offline $FILTER
+        else
+          pnpm install --frozen-lockfile --prefer-offline
+        fi

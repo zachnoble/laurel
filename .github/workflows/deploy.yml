@@ -1,0 +1,106 @@
+name: Deploy
+
+# main -> staging -> production (production waits for approval: configure
+# required reviewers on the "production" GitHub environment).
+#
+# Every project is compared against the commit last deployed to each
+# environment (tags deploy/<env>/<name>), never against the previous push.
+# A cancelled, superseded or failed run therefore never loses changes: the
+# next run deploys everything not yet deployed. Unchanged images (same
+# digest) and unchanged app builds are skipped.
+#
+# AWS access is OIDC only (no stored keys). Per environment, set the
+# variables AWS_REGION and AWS_DEPLOY_ROLE_ARN (infra output
+# deploy_role_arn); for image builds, the repository variables AWS_REGION
+# and AWS_BUILD_ROLE_ARN (infra/shared output build_role_arn).
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Deploy every project, changed or not
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      images: ${{ steps.plan.outputs.images }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+        with:
+          go: "true"
+      - id: plan
+        name: Images not yet deployed to some environment
+        env:
+          FORCE: ${{ inputs.force }}
+        run: |
+          staging="deploy/staging/{name}" production="deploy/production/{name}"
+          if [ "$FORCE" = "true" ]; then staging="force-all/{name}"; production="$staging"; fi
+          services=$( (go run ./tools/repo affected --base-tag "$staging" --head HEAD; go run ./tools/repo affected --base-tag "$production" --head HEAD) \
+            | jq -s -c '[.[].go_services[]] | unique')
+          echo "$services"
+          # At most 20 build jobs, each building its share.
+          echo "images=$(jq -c '. as $s | [range(0; ([$s | length, 20] | min))] | map(. as $i | {shard: "\($i + 1)", projects: ([$s | to_entries[] | select(.key % ([$s | length, 20] | min) == $i) | .value] | join(" "))})' <<<"$services")" >> "$GITHUB_OUTPUT"
+
+  images:
+    needs: plan
+    if: needs.plan.outputs.images != '[]'
+    name: images ${{ matrix.shard.shard }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.images) }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_BUILD_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+      - uses: docker/setup-buildx-action@v4
+      - name: Build and push
+        env:
+          PROJECTS: ${{ matrix.shard.projects }}
+        run: |
+          for name in $PROJECTS; do
+            echo "::group::$name"
+            .github/scripts/build-image.sh "$name" "$GITHUB_SHA"
+            echo "::endgroup::"
+          done
+
+  staging:
+    needs: images
+    # Runs even when no images were needed (apps-only changes).
+    if: ${{ !failure() && !cancelled() }}
+    uses: ./.github/workflows/deploy-environment.yml
+    with:
+      environment: staging
+      force: ${{ inputs.force || false }}
+    permissions:
+      contents: write
+      id-token: write
+
+  production:
+    needs: staging
+    uses: ./.github/workflows/deploy-environment.yml
+    with:
+      environment: production
+      force: ${{ inputs.force || false }}
+    permissions:
+      contents: write
+      id-token: write

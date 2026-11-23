@@ -1,0 +1,9 @@
+{
+	"name": "@laurel/rpc-generators",
+	"version": "0.0.0",
+	"private": true,
+	"description": "protoc-gen-es for rpc/generators/typescript/generate.sh",
+	"devDependencies": {
+		"@bufbuild/protoc-gen-es": "catalog:"
+	}
+}

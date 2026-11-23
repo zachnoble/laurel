@@ -1,0 +1,6 @@
+rpc/generated/go/**/*.pb.go linguist-generated=true
+rpc/generated/go/**/*.connect.go linguist-generated=true
+rpc/generated/typescript/**/*_pb.js linguist-generated=true
+rpc/generated/typescript/**/*_pb.d.ts linguist-generated=true
+compose.projects.yml linguist-generated=true
+infra/projects.json linguist-generated=true

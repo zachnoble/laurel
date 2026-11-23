@@ -1,0 +1,11 @@
+# See tools/repo/manifest.go for every field.
+name: gateway
+kind: go-service
+description: The only public entry point. Routes /<name>.v1.<Service>/<Method> to <name> and swaps the session cookie for an identity token.
+calls:
+  - auth
+deploy:
+  cpu: 512
+  memory: 1024
+  count: 3
+  public: true

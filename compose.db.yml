@@ -1,0 +1,13 @@
+# Creates a service's database in the shared dev Postgres (one container, one
+# database per service). compose.projects.yml (generated from project.yaml,
+# `database: true`) gives each such service a <name>-db job extending this.
+services:
+  create-database:
+    image: postgres:18-alpine
+    environment:
+      PGHOST: postgres
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    # Create it, or confirm it already exists (fails if Postgres is unreachable).
+    command: sh -c 'createdb "$$DB_NAME" 2>/dev/null || psql -d "$$DB_NAME" -c "SELECT 1" >/dev/null'
+    restart: "no"

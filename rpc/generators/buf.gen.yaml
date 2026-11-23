@@ -1,0 +1,24 @@
+version: v2
+managed:
+  enabled: true
+  disable:
+    - module: buf.build/bufbuild/protovalidate
+  override:
+    - file_option: go_package_prefix
+      value: github.com/zachnoble/laurel/rpc/generated/go
+plugins:
+  - local: [go, tool, protoc-gen-go]
+    out: rpc/generated/go
+    opt: paths=source_relative
+  - local: [go, tool, protoc-gen-connect-go]
+    out: rpc/generated/go
+    opt: paths=source_relative
+  - local: rpc/generators/typescript/node_modules/.bin/protoc-gen-es
+    out: rpc/generated/typescript
+    opt: [target=js+dts, import_extension=js]
+    # protovalidate rules are enforced server-side; keep them out of the bundle.
+    exclude_types:
+      - buf.validate.field
+      - buf.validate.message
+      - buf.validate.oneof
+      - buf.validate.predefined

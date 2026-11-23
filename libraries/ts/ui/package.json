@@ -1,0 +1,42 @@
+{
+	"name": "@laurel/ui",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Shared Svelte UI components and theme. Import files directly, e.g. @laurel/ui/button/index.js",
+	"type": "module",
+	"sideEffects": [
+		"**/*.css"
+	],
+	"exports": {
+		"./*": "./src/*"
+	},
+	"scripts": {
+		"typecheck": "svelte-check --tsconfig ./tsconfig.json --tsgo",
+		"lint": "biome check",
+		"lint:fix": "biome check --write",
+		"test": "vitest run --passWithNoTests"
+	},
+	"peerDependencies": {
+		"@connectrpc/connect": "^2.3.0",
+		"svelte": "^5.57.3"
+	},
+	"dependencies": {
+		"@internationalized/date": "catalog:",
+		"@lucide/svelte": "catalog:",
+		"bits-ui": "catalog:",
+		"clsx": "catalog:",
+		"svelte-sonner": "catalog:",
+		"tailwind-merge": "catalog:",
+		"tailwind-variants": "catalog:",
+		"tw-animate-css": "catalog:"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "catalog:",
+		"@connectrpc/connect": "catalog:",
+		"@typescript/native-preview": "catalog:",
+		"svelte": "catalog:",
+		"svelte-check": "catalog:",
+		"typescript": "catalog:",
+		"vitest": "catalog:"
+	}
+}
